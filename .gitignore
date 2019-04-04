@@ -1,0 +1,7 @@
+airflow/logs
+airflow/.local
+airflow/.cache
+airflow/airflow
+.idea
+.envrc
+__pycache__
