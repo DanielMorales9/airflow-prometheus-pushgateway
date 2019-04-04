@@ -1,27 +1,42 @@
 import time
 from datetime import datetime
+from datetime import timedelta
 from random import randint, random
+from timeit import default_timer as timer
 
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
-from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+from prometheus_client import CollectorRegistry, push_to_gateway, Summary, Counter
+
+GATEWAY = 'pushgateway'
 
 
 def print_hello():
     registry = CollectorRegistry()
-    g = Gauge('gauge', 'counts success or failures', registry=registry)
+    c = Counter('count_exceptions', 'counts number of successes and failures',
+                labelnames=['type'], registry=registry)
+    s = Summary('time_delta', 'execution time of print_hello function', registry=registry)
 
-    for i in range(randint(10)):
-        time.sleep(random())
+    for i in range(randint(1, 10)):
+        start = timer()
+        time.sleep(random()*10)
+
         try:
+
             if randint(0, 1) == 1:
                 raise Exception
-            g.labels('type', 'success').inc()
-        except Exception:
-            g.labels('type', 'failure').inc()
 
-    push_to_gateway('pushgateway:9091', job='print_hello', registry=registry)
+            c.labels(type='success').inc()
+
+        except:
+            c.labels(type='failure').inc()
+
+        end = timer()
+        s.observe(timedelta(seconds=end - start).seconds)
+
+    push_to_gateway('%s:9091' % GATEWAY, job='print_hello', registry=registry)
+
     return 'Hello world!'
 
 
